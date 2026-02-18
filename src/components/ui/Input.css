@@ -83,6 +83,7 @@
 
 .input-icon-right {
   right: var(--space-3);
+  pointer-events: auto;
 }
 
 .input-icon svg {

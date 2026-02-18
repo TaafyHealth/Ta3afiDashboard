@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import './SingleArticle.css';
 import ArticleBox from './components/Article';
@@ -6,21 +6,39 @@ import ArticleBox from './components/Article';
 import axios from '../../public Func/axiosAuth';
 import globalVar from '../../public Func/globalVar';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import formatDate from '../../public Func/DateFix';
 import ArticleCommentBox from './components/ArticleComment';
 
 
 function SingleArticlesPage() {
     const {articleID} = useParams()
+    const navigate = useNavigate()
 
-    const [article,setArticleList] = useState([])
+    const [article,setArticleList] = useState({})
     const [isAtEnd, setIsAtEnd] = useState(true);
     const [loadingStatus,setLoadingStatus] = useState('shown')
     const divRef = useRef(null);
     const [RateColor,setRateColor] = useState("rateGreen")
     const [UserImage,setUserImage] = useState("")
     const [imageList,setImageList] = useState([])
+
+    // Get current logged-in supervisor/admin ID
+    const currentUserId = localStorage.getItem('id') || localStorage.getItem('supervisorID') || localStorage.getItem('supervisor_id');
+    const currentRole = localStorage.getItem('role');
+    const isCurrentUserSupervisor = currentRole === 'supervisor' || currentRole === 'Supervisor' || currentRole === 'super';
+    
+    // Check if this is supervisor's own article (recalculated when article changes)
+    // Simplified: if user is supervisor and article is by supervisor, show delete button
+    const isOwnArticle = useMemo(() => {
+        if (!article || !article.id) return false;
+        // Show delete if user is supervisor and article is by supervisor
+        if (isCurrentUserSupervisor && article.isSupervisor) {
+            return true;
+        }
+        return false;
+    }, [article, isCurrentUserSupervisor]);
 
     // Comments
     var [SeeCommentButton,setButtonText] = useState("See Comments")
@@ -34,6 +52,40 @@ function SingleArticlesPage() {
     const [showReportModal, setShowReportModal] = useState(false)
     const [selectedReason, setSelectedReason] = useState(null)
     const [showErrorMessage,setshowErrorMessage] = useState(null)
+
+    // Delete Article Part
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    function showDeleteConfirm(){
+        setShowDeleteModal(true)
+    }
+
+    function hideDeleteModal(){
+        setShowDeleteModal(false)
+    }
+
+    async function deleteArticle(){
+        setIsDeleting(true)
+        try{
+            const res = await axios.delete(globalVar.backendURL + '/admin/article', {
+                data: { articleID: article.id }
+            })
+            
+            if(res.status === 200 && (res.data === 'Done' || res.data?.message === 'Done' || res.data?.done)){
+                hideDeleteModal()
+                // Redirect to articles page after successful deletion
+                navigate('/articles')
+            } else {
+                setshowErrorMessage('Failed to delete article. Please try again.')
+            }
+        } catch(err){
+            console.error('Error deleting article:', err)
+            setshowErrorMessage(err.response?.data || 'Failed to delete article. Please try again.')
+        } finally {
+            setIsDeleting(false)
+        }
+    }
     
     // Hiding the Popup Window
     function hideReportForm(){
@@ -201,7 +253,19 @@ function SingleArticlesPage() {
                     <div className='right'>
                         <div className='Tags'>
                             <span className='Community'>{article.category}</span>
-                            <span className='Report' onClick={ShowPopupReportForm}>Report</span>
+                            {/* Show Delete button for admin's own articles or supervisor's own articles */}
+                            {/* Check multiple conditions: isAdmin, adminEmail, isSupervisor flag, or supervisorID exists */}
+                            {((article.isAdmin || article.adminEmail) || 
+                              (isCurrentUserSupervisor && (article.isSupervisor || article.supervisorID))) && (
+                                <span className={'Delete' + (isDeleting ? ' disabled' : '')} onClick={showDeleteConfirm} style={{pointerEvents: isDeleting ? 'none' : 'auto'}}>
+                                    <FontAwesomeIcon icon={faTrash} style={{ marginRight: '0.25rem' }} />
+                                    Delete
+                                </span>
+                            )}
+                            {/* Show Report button only if it's not the supervisor's own article and not admin's article */}
+                            {!(isCurrentUserSupervisor && (article.isSupervisor || article.supervisorID)) && !(article.isAdmin || article.adminEmail) && (
+                                <span className='Report' onClick={ShowPopupReportForm}>Report</span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -266,6 +330,30 @@ function SingleArticlesPage() {
                         </div>
                         <button className='submutReportButton' onClick={submitReportForm}>Submit Report</button>
                         <p className={'ErrorMessage'+(showErrorMessage?" show":"")}>{showErrorMessage}</p>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && ReactDOM.createPortal(
+                <div className='ReportPopupWindow'>
+                    <div className='backgroundBlock' onClick={hideDeleteModal}></div>
+                    <div className='ReportForm'>
+                        <h1 className='TitleReport'>Delete Article</h1>
+                        <h3 className='ForNextArticle'>Are you sure you want to delete this article?</h3>
+                        <p className='ReportMainArticleText'>{article.title}</p>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                            <button className='submutReportButton' onClick={hideDeleteModal} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', flex: 1 }}>
+                                Cancel
+                            </button>
+                            <button className='submutReportButton' onClick={deleteArticle} disabled={isDeleting} style={{ background: 'var(--danger-500)', flex: 1 }}>
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                        {showErrorMessage && (
+                            <p className={'ErrorMessage show'}>{showErrorMessage}</p>
+                        )}
                     </div>
                 </div>,
                 document.body

@@ -5,7 +5,7 @@ import axios from "axios";
 axios.interceptors.request.use(function (config) {
     const token = localStorage.getItem("token")
     const role = localStorage.getItem("role")
-    config.headers.Authorization =  token;
+    config.headers.Authorization =  `Bearer ${token}`;
     if (role) {
         config.headers.role = role;
     }

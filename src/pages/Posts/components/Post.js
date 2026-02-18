@@ -3,11 +3,23 @@ import ReactDOM from 'react-dom';
 import './Post.css';
 import CommentBox from './Comment';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTimes, faTrash } from '@fortawesome/free-solid-svg-icons';
 import formatDate from '../../../public Func/DateFix';
 import globalVar from '../../../public Func/globalVar';
 import axios from '../../../public Func/axiosAuth';
 
 function PostBox({post}) {
+    // Get current logged-in supervisor/admin ID
+    const currentUserId = localStorage.getItem('id') || localStorage.getItem('supervisorID') || localStorage.getItem('supervisor_id');
+    const currentRole = localStorage.getItem('role');
+    const isCurrentUserSupervisor = currentRole === 'supervisor' || currentRole === 'Supervisor' || currentRole === 'super';
+    // Check if this is supervisor's own post by comparing supervisorID
+    const isOwnPost = isCurrentUserSupervisor && post.isSupervisor && (
+        (post.supervisorID && currentUserId && post.supervisorID.toString() === currentUserId.toString()) ||
+        // Fallback: if supervisorID doesn't match but user is supervisor and post is by supervisor, show delete
+        (post.isSupervisor && isCurrentUserSupervisor)
+    );
+    
     // Validate For anonymous, admin, supervisor, or doctor
     var UserImage,UserName;
     if(post.hideIdentity){
@@ -43,9 +55,24 @@ function PostBox({post}) {
 
 
     // Uploaded Images
+    const [modalImage, setModalImage] = useState(null);
     const images = []
-    for(var i of post.images){
-        images.push(<img src={globalVar.backendURL+"/file/"+i.link}/>)
+    if(post.images && Array.isArray(post.images)){
+        for(var i of post.images){
+            // Handle both full URLs and relative paths
+            const imageUrl = i.link && i.link.startsWith('http') ? i.link : (globalVar.backendURL + "/file/" + (i.link || ''));
+            if(imageUrl && imageUrl !== globalVar.backendURL + "/file/") {
+                images.push(
+                    <img 
+                        key={i.id || i.link || Math.random()}
+                        src={imageUrl} 
+                        alt={i.name || 'Post image'}
+                        onClick={() => setModalImage(imageUrl)}
+                        style={{ cursor: 'pointer' }}
+                    />
+                )
+            }
+        }
     }
     
 
@@ -128,6 +155,52 @@ function PostBox({post}) {
     // Submit the Form
     const [showErrorMessage,setshowErrorMessage] = useState(null)
     const [isReporting, setIsReporting] = useState(false)
+
+    // Delete Post Part
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    function showDeleteConfirm(){
+        setShowDeleteModal(true)
+    }
+
+    function hideDeleteModal(){
+        setShowDeleteModal(false)
+    }
+
+    async function deletePost(){
+        setIsDeleting(true)
+        try{
+            const res = await axios.delete(globalVar.backendURL + '/admin/post', {
+                data: { postID: post.id }
+            })
+            
+            if(res.status === 200 && (res.data === 'Done' || res.data?.message === 'Done' || res.data?.done)){
+                hideDeleteModal()
+                const parent = document.getElementById(post.id)
+                if (parent) {
+                    parent.style.height = parent.scrollHeight + "px"
+                    function hideScroll(){
+                        parent.style.height = '0px'
+                        parent.style.padding = '0px'
+                        parent.style.margin = '0px auto'
+                    }
+                    function dissolve(){
+                        parent.style.display = 'none'
+                    }
+                    setTimeout(hideScroll, 100)
+                    setTimeout(dissolve, 2000)
+                }
+            } else {
+                setshowErrorMessage('Failed to delete post. Please try again.')
+            }
+        } catch(err){
+            console.error('Error deleting post:', err)
+            setshowErrorMessage(err.response?.data || 'Failed to delete post. Please try again.')
+        } finally {
+            setIsDeleting(false)
+        }
+    }
     async function submitReportForm(event){
         var reason = ''
         // Data Reading and Validation
@@ -219,15 +292,27 @@ function PostBox({post}) {
                     </div>
                     <div className='Tags right'>
                         <span className='Community'>{post.community}</span>
-                        <span className={'Report' + (isReporting ? ' disabled' : '')} onClick={ShowPopupReportForm} style={{pointerEvents: isReporting ? 'none' : 'auto'}}>Report</span>
+                        {/* Show Delete button for admin's own posts or supervisor's own posts */}
+                        {((post.isAdmin || post.adminEmail) || isOwnPost) && (
+                            <span className={'Delete' + (isDeleting ? ' disabled' : '')} onClick={showDeleteConfirm} style={{pointerEvents: isDeleting ? 'none' : 'auto'}}>
+                                <FontAwesomeIcon icon={faTrash} style={{ marginRight: '0.25rem' }} />
+                                Delete
+                            </span>
+                        )}
+                        {/* Show Report button only if it's not the supervisor's own post and not admin's post */}
+                        {!isOwnPost && !(post.isAdmin || post.adminEmail) && (
+                            <span className={'Report' + (isReporting ? ' disabled' : '')} onClick={ShowPopupReportForm} style={{pointerEvents: isReporting ? 'none' : 'auto'}}>Report</span>
+                        )}
                     </div>
                 </div>
             </div>
             <div className='PostBody'>
                 <p>{post.mainText}</p>
-                <div className='PostImageContainer one'>
-                    {images}
-                </div>
+                {images.length > 0 && (
+                    <div className='PostImageContainer one'>
+                        {images}
+                    </div>
+                )}
             </div>
             <div className='PostReactions'>
                 <div className='left'>
@@ -278,6 +363,47 @@ function PostBox({post}) {
                         </div>
                         <button className='submutReportButton' onClick={submitReportForm}>Submit Report</button>
                         <p className={'ErrorMessage'+(showErrorMessage?" show":"")}>{showErrorMessage}</p>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Image Modal */}
+            {modalImage && ReactDOM.createPortal(
+                <div className='image-modal-overlay' onClick={() => setModalImage(null)}>
+                    <div className='image-modal-content' onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className='image-modal-close'
+                            onClick={() => setModalImage(null)}
+                            aria-label="Close"
+                        >
+                            <FontAwesomeIcon icon={faTimes} />
+                        </button>
+                        <img src={modalImage} alt="Full size preview" className='image-modal-image' />
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && ReactDOM.createPortal(
+                <div className='ReportPopupWindow'>
+                    <div className='backgroundBlock' onClick={hideDeleteModal}></div>
+                    <div className='ReportForm'>
+                        <h1 className='TitleReport'>Delete Post</h1>
+                        <h3 className='ForNextPost'>Are you sure you want to delete this post?</h3>
+                        <p className='ReportMainPostText'>{post.mainText}</p>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                            <button className='submutReportButton' onClick={hideDeleteModal} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', flex: 1 }}>
+                                Cancel
+                            </button>
+                            <button className='submutReportButton' onClick={deletePost} disabled={isDeleting} style={{ background: 'var(--danger-500)', flex: 1 }}>
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                        {showErrorMessage && (
+                            <p className={'ErrorMessage show'}>{showErrorMessage}</p>
+                        )}
                     </div>
                 </div>,
                 document.body

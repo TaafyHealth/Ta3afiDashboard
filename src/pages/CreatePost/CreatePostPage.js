@@ -21,6 +21,8 @@ function CreatePostPage() {
     hideIdentity: false,
     attachedImages: []
   });
+  const [uploadingAttachedImage, setUploadingAttachedImage] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
 
   useEffect(() => {
     fetchCommunities();
@@ -51,14 +53,52 @@ function CreatePostPage() {
     setMessage({ type: '', text: '' });
   };
 
-  const handleImageAdd = () => {
-    const name = prompt('Enter image name:');
-    const link = prompt('Enter image URL:');
-    if (name && link) {
+  const handleAttachedImageAdd = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Please select an image file.' });
+      return;
+    }
+
+    try {
+      setUploadingAttachedImage(true);
+      setMessage({ type: '', text: '' });
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await axios.post(
+        globalVar.backendURL + '/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      // Response is a full URL string: "http://localhost:8001/file/1771427428652.png"
+      const imageUrl = typeof res.data === 'string' ? res.data : (res.data?.link || res.data?.file || res.data?.filename || res.data);
+      const fileName = file.name;
+      
       setFormData(prev => ({
         ...prev,
-        attachedImages: [...prev.attachedImages, { name, link }]
+        attachedImages: [...prev.attachedImages, { name: fileName, link: imageUrl }]
       }));
+      
+      setMessage({ type: 'success', text: 'Image uploaded successfully!' });
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setMessage({
+        type: 'error',
+        text: err.response?.data || 'Failed to upload image. Please try again.'
+      });
+    } finally {
+      setUploadingAttachedImage(false);
+      // Reset the input so the same file can be selected again
+      e.target.value = '';
     }
   };
 
@@ -211,7 +251,7 @@ function CreatePostPage() {
 
             {/* Hide Identity */}
             <div className="form-group checkbox-group">
-              <label className="checkbox-label">
+              <label className="post-checkbox-label">
                 <input
                   type="checkbox"
                   name="hideIdentity"
@@ -227,30 +267,48 @@ function CreatePostPage() {
               <label>Attached Images</label>
               <div className="images-section">
                 {formData.attachedImages.map((image, index) => (
-                  <div key={index} className="image-item">
-                    <div className="image-info">
-                      <strong>{image.name}</strong>
-                      <a href={image.link} target="_blank" rel="noopener noreferrer">
-                        {image.link}
-                      </a>
+                  <div key={index} className="image-preview-container attached-image-preview">
+                    <div className="image-preview-wrapper">
+                      <img 
+                        src={image.link} 
+                        alt={image.name}
+                        className="image-preview attached-image"
+                        onClick={() => setModalImage(image.link)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <button
+                        type="button"
+                        className="remove-image-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleImageRemove(index);
+                        }}
+                        style={{ position: 'absolute', top: '0.5rem', right: '0.5rem' }}
+                      >
+                        <FontAwesomeIcon icon={faTimes} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="remove-image-btn"
-                      onClick={() => handleImageRemove(index)}
-                    >
-                      <FontAwesomeIcon icon={faTimes} />
-                    </button>
                   </div>
                 ))}
-                <button
-                  type="button"
+                <input
+                  id="attachedImageInput"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAttachedImageAdd}
+                  disabled={uploadingAttachedImage}
+                  style={{ display: 'none' }}
+                />
+                <label
+                  htmlFor="attachedImageInput"
                   className="add-image-btn"
-                  onClick={handleImageAdd}
+                  style={{ 
+                    cursor: uploadingAttachedImage ? 'not-allowed' : 'pointer',
+                    opacity: uploadingAttachedImage ? 0.6 : 1
+                  }}
                 >
-                  <FontAwesomeIcon icon={faImage} />
-                  Add Image
-                </button>
+                  <FontAwesomeIcon icon={faImage} style={{ marginRight: '0.5rem' }} />
+                  {uploadingAttachedImage ? 'Uploading...' : 'Add Image'}
+                </label>
               </div>
             </div>
 
@@ -283,6 +341,22 @@ function CreatePostPage() {
           </form>
         </Card>
       </div>
+
+      {/* Image Modal */}
+      {modalImage && (
+        <div className="image-modal-overlay" onClick={() => setModalImage(null)}>
+          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="image-modal-close"
+              onClick={() => setModalImage(null)}
+              aria-label="Close"
+            >
+              <FontAwesomeIcon icon={faTimes} />
+            </button>
+            <img src={modalImage} alt="Full size preview" className="image-modal-image" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

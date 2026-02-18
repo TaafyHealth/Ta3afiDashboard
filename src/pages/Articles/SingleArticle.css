@@ -137,6 +137,32 @@
   white-space: nowrap;
 }
 
+.SingleArticleBox .ArticleHeader .right .Tags .Delete {
+  background: var(--warning-500);
+  color: white;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  opacity: 1;
+  transform: translateY(0);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+
+.SingleArticleBox .ArticleHeader .right .Tags .Delete:hover {
+  background: var(--warning-600);
+  box-shadow: var(--shadow-md);
+}
+
+.SingleArticleBox .ArticleHeader .right .Tags .Delete.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .SingleArticleBox .ArticleHeader .right .Tags .Report {
   background: var(--danger-500);
   color: white;

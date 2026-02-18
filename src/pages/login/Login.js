@@ -135,7 +135,7 @@ function LoginPage() {
           {/* Footer */}
           <div className="login-footer">
             <p className="login-footer-text">
-              Secure admin access to Ta3afy platform
+              {/* Secure admin access to Ta3afy platform */}
             </p>
           </div>
         </div>

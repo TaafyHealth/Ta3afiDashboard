@@ -144,7 +144,7 @@ function ArticlesPage() {
           onClick={() => navigate('/articles/create')}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <FontAwesomeIcon icon={faFilePen} />
+          <FontAwesomeIcon icon={faFilePen} style={{ marginRight: '0.5rem' }} />
           Create Article
         </Button>
       </div>

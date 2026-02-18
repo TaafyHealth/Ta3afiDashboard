@@ -138,7 +138,7 @@ function PostsPage() {
           onClick={() => navigate('/posts/create')}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <FontAwesomeIcon icon={faPlus} />
+          <FontAwesomeIcon icon={faPlus} style={{ marginRight: '0.5rem' }} />
           Create Post
         </Button>
       </div>

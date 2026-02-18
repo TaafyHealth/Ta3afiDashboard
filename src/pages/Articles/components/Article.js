@@ -3,11 +3,23 @@ import ReactDOM from 'react-dom';
 import './Article.css';
 import CommentBox from './ArticleComment';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import formatDate from '../../../public Func/DateFix';
 import globalVar from '../../../public Func/globalVar';
 import axios from '../../../public Func/axiosAuth';
 
 function ArticleBox({article}) {
+    // Get current logged-in supervisor/admin ID
+    const currentUserId = localStorage.getItem('id') || localStorage.getItem('supervisorID') || localStorage.getItem('supervisor_id');
+    const currentRole = localStorage.getItem('role');
+    const isCurrentUserSupervisor = currentRole === 'supervisor' || currentRole === 'Supervisor' || currentRole === 'super';
+    // Check if this is supervisor's own article by comparing supervisorID
+    const isOwnArticle = isCurrentUserSupervisor && article.isSupervisor && (
+        (article.supervisorID && currentUserId && article.supervisorID.toString() === currentUserId.toString()) ||
+        // Fallback: if supervisorID doesn't match but user is supervisor and article is by supervisor, show delete
+        (article.isSupervisor && isCurrentUserSupervisor)
+    );
+    
     // Validate For admin, supervisor, or doctor
     var UserImage, UserName;
     if(article.isAdmin){
@@ -79,6 +91,53 @@ function ArticleBox({article}) {
 
     // Submit the Form
     const [showErrorMessage,setshowErrorMessage] = useState(null)
+    
+    // Delete Article Part
+    const [showDeleteModal, setShowDeleteModal] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    function showDeleteConfirm(){
+        setShowDeleteModal(true)
+    }
+
+    function hideDeleteModal(){
+        setShowDeleteModal(false)
+    }
+
+    async function deleteArticle(){
+        setIsDeleting(true)
+        try{
+            const res = await axios.delete(globalVar.backendURL + '/admin/article', {
+                data: { articleID: article.id }
+            })
+            
+            if(res.status === 200 && (res.data === 'Done' || res.data?.message === 'Done' || res.data?.done)){
+                hideDeleteModal()
+                const parent = document.getElementById(article.id)
+                if (parent) {
+                    parent.style.height = parent.scrollHeight + "px"
+                    function hideScroll(){
+                        parent.style.height = '0px'
+                        parent.style.padding = '0px'
+                        parent.style.margin = '0px auto'
+                    }
+                    function dissolve(){
+                        parent.style.display = 'none'
+                    }
+                    setTimeout(hideScroll, 100)
+                    setTimeout(dissolve, 2000)
+                }
+            } else {
+                setshowErrorMessage('Failed to delete article. Please try again.')
+            }
+        } catch(err){
+            console.error('Error deleting article:', err)
+            setshowErrorMessage(err.response?.data || 'Failed to delete article. Please try again.')
+        } finally {
+            setIsDeleting(false)
+        }
+    }
+
     async function submitReportForm(event){
         var reason = ''
         // Data Reading and Validation
@@ -140,7 +199,17 @@ function ArticleBox({article}) {
                     </div>
                     <div className='Tags right'>
                         <span className='Community'>{article.category}</span>
-                        <span className='Report' onClick={ShowPopupReportForm}>Report</span>
+                        {/* Show Delete button for admin's own articles or supervisor's own articles */}
+                        {((article.isAdmin || article.adminEmail) || isOwnArticle) && (
+                            <span className={'Delete' + (isDeleting ? ' disabled' : '')} onClick={showDeleteConfirm} style={{pointerEvents: isDeleting ? 'none' : 'auto'}}>
+                                <FontAwesomeIcon icon={faTrash} style={{ marginRight: '0.25rem' }} />
+                                Delete
+                            </span>
+                        )}
+                        {/* Show Report button only if it's not the supervisor's own article and not admin's article */}
+                        {!isOwnArticle && !(article.isAdmin || article.adminEmail) && (
+                            <span className='Report' onClick={ShowPopupReportForm}>Report</span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -196,6 +265,30 @@ function ArticleBox({article}) {
                         </div>
                         <button className='submutReportButton' onClick={submitReportForm}>Submit Report</button>
                         <p className={'ErrorMessage'+(showErrorMessage?" show":"")}>{showErrorMessage}</p>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteModal && ReactDOM.createPortal(
+                <div className='ReportPopupWindow'>
+                    <div className='backgroundBlock' onClick={hideDeleteModal}></div>
+                    <div className='ReportForm'>
+                        <h1 className='TitleReport'>Delete Article</h1>
+                        <h3 className='ForNextArticle'>Are you sure you want to delete this article?</h3>
+                        <p className='ReportMainArticleText'>{article.title}</p>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                            <button className='submutReportButton' onClick={hideDeleteModal} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', flex: 1 }}>
+                                Cancel
+                            </button>
+                            <button className='submutReportButton' onClick={deleteArticle} disabled={isDeleting} style={{ background: 'var(--danger-500)', flex: 1 }}>
+                                {isDeleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                        {showErrorMessage && (
+                            <p className={'ErrorMessage show'}>{showErrorMessage}</p>
+                        )}
                     </div>
                 </div>,
                 document.body
