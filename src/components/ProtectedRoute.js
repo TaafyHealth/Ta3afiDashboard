@@ -17,9 +17,26 @@ function ProtectedRoute({ children, requiredRole }) {
     }
 
     // If a specific role is required, check if user has it
-    if (requiredRole && userRole !== requiredRole) {
-        // User doesn't have required role, redirect to dashboard
-        return <Navigate to="/dashboard" replace />;
+    if (requiredRole) {
+        // Normalize roles for comparison (case-insensitive)
+        const normalizedUserRole = userRole?.toLowerCase();
+        const normalizedRequiredRole = requiredRole.toLowerCase();
+        
+        // Map role variations
+        const roleMap = {
+            'super': ['super', 'supervisor'],
+            'supervisor': ['super', 'supervisor'],
+            'admin': ['admin', 'administrator']
+        };
+        
+        // Check if user role matches required role or any of its variations
+        const allowedRoles = roleMap[normalizedRequiredRole] || [normalizedRequiredRole];
+        const hasAccess = allowedRoles.includes(normalizedUserRole);
+        
+        if (!hasAccess) {
+            // User doesn't have required role, redirect to dashboard
+            return <Navigate to="/dashboard" replace />;
+        }
     }
 
     // User is authenticated and authorized
