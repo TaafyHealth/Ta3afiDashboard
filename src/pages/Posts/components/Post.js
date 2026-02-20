@@ -58,7 +58,7 @@ function PostBox({post}) {
     const [modalImage, setModalImage] = useState(null);
     const images = []
     if(post.images && Array.isArray(post.images)){
-        for(var i of post.images){
+    for(var i of post.images){
             // Handle both full URLs and relative paths
             const imageUrl = i.link && i.link.startsWith('http') ? i.link : (globalVar.backendURL + "/file/" + (i.link || ''));
             if(imageUrl && imageUrl !== globalVar.backendURL + "/file/") {
@@ -301,7 +301,7 @@ function PostBox({post}) {
                         )}
                         {/* Show Report button only if it's not the supervisor's own post and not admin's post */}
                         {!isOwnPost && !(post.isAdmin || post.adminEmail) && (
-                            <span className={'Report' + (isReporting ? ' disabled' : '')} onClick={ShowPopupReportForm} style={{pointerEvents: isReporting ? 'none' : 'auto'}}>Report</span>
+                        <span className={'Report' + (isReporting ? ' disabled' : '')} onClick={ShowPopupReportForm} style={{pointerEvents: isReporting ? 'none' : 'auto'}}>Report</span>
                         )}
                     </div>
                 </div>
@@ -309,9 +309,9 @@ function PostBox({post}) {
             <div className='PostBody'>
                 <p>{post.mainText}</p>
                 {images.length > 0 && (
-                    <div className='PostImageContainer one'>
-                        {images}
-                    </div>
+                <div className='PostImageContainer one'>
+                    {images}
+                </div>
                 )}
             </div>
             <div className='PostReactions'>

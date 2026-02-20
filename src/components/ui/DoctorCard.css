@@ -43,11 +43,28 @@
   background: var(--gray-100);
 }
 
+/* Image Placeholder */
+.doctor-card-image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--gray-200, #e5e7eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .doctor-card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform var(--transition-slow);
+}
+
+/* Prevent hb-hide-temp class from hiding images */
+.doctor-card-image img.hb-hide-temp {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .doctor-card:hover .doctor-card-image img {

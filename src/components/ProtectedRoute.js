@@ -22,10 +22,10 @@ function ProtectedRoute({ children, requiredRole }) {
         const normalizedUserRole = userRole?.toLowerCase();
         const normalizedRequiredRole = requiredRole.toLowerCase();
         
-        // Map role variations
+        // Map role variations and permissions
         const roleMap = {
-            'super': ['super', 'supervisor'],
-            'supervisor': ['super', 'supervisor'],
+            'super': ['super', 'supervisor', 'admin'], // Admins can access supervisor routes
+            'supervisor': ['super', 'supervisor', 'admin'], // Admins can access supervisor routes
             'admin': ['admin', 'administrator']
         };
         

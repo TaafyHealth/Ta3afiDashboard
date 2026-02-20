@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStar, faUserDoctor, faLanguage, faVenusMars } from '@fortawesome/free-solid-svg-icons';
@@ -13,6 +13,8 @@ const DoctorCard = ({
   ...props
 }) => {
   const navigate = useNavigate();
+  const imageRef = useRef(null);
+  const [imageError, setImageError] = useState(false);
 
   const handleClick = () => {
     if (onClick) {
@@ -21,6 +23,46 @@ const DoctorCard = ({
       navigate(`/doctors/info/${doctor.id}`);
     }
   };
+
+  // Reset image error state when doctor changes
+  useEffect(() => {
+    setImageError(false);
+  }, [doctor.id, doctor.profileImage]);
+
+  // Prevent hb-hide-temp class from being added/removed repeatedly
+  useEffect(() => {
+    if (imageRef.current && !imageError) {
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+            if (imageRef.current && imageRef.current.classList.contains('hb-hide-temp')) {
+              imageRef.current.classList.remove('hb-hide-temp');
+            }
+          }
+        });
+      });
+
+      observer.observe(imageRef.current, {
+        attributes: true,
+        attributeFilter: ['class']
+      });
+
+      // Also check and remove immediately
+      const checkAndRemove = () => {
+        if (imageRef.current && imageRef.current.classList.contains('hb-hide-temp')) {
+          imageRef.current.classList.remove('hb-hide-temp');
+        }
+      };
+
+      // Check periodically to catch any additions
+      const interval = setInterval(checkAndRemove, 100);
+
+      return () => {
+        observer.disconnect();
+        clearInterval(interval);
+      };
+    }
+  }, [doctor.id, imageError]);
 
   const cardClasses = [
     'doctor-card',
@@ -46,13 +88,28 @@ const DoctorCard = ({
 
       {/* Doctor Image */}
       <div className="doctor-card-image">
-        <img
-          src={doctor.profileImage || '/default-avatar.png'}
-          alt={doctor.name}
-          onError={(e) => {
-            e.target.src = '/default-avatar.png';
-          }}
-        />
+        {imageError || !doctor.profileImage ? (
+          <div className="doctor-card-image-placeholder" />
+        ) : (
+          <img
+            ref={imageRef}
+            src={doctor.profileImage}
+            alt={doctor.name}
+            onError={(e) => {
+              setImageError(true);
+              // Remove hb-hide-temp if it gets added
+              if (e.target.classList.contains('hb-hide-temp')) {
+                e.target.classList.remove('hb-hide-temp');
+              }
+            }}
+            onLoad={(e) => {
+              // Remove hb-hide-temp if it gets added
+              if (e.target.classList.contains('hb-hide-temp')) {
+                e.target.classList.remove('hb-hide-temp');
+              }
+            }}
+          />
+        )}
         {doctor.starRate && (
           <div className="doctor-card-rating">
             <FontAwesomeIcon icon={faStar} />

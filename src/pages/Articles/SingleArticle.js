@@ -264,7 +264,7 @@ function SingleArticlesPage() {
                             )}
                             {/* Show Report button only if it's not the supervisor's own article and not admin's article */}
                             {!(isCurrentUserSupervisor && (article.isSupervisor || article.supervisorID)) && !(article.isAdmin || article.adminEmail) && (
-                                <span className='Report' onClick={ShowPopupReportForm}>Report</span>
+                            <span className='Report' onClick={ShowPopupReportForm}>Report</span>
                             )}
                         </div>
                     </div>
